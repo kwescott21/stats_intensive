@@ -1,7 +1,7 @@
 //#############################################################################
 //MSPP 1000 Statistics Course Example File
 
-//Uses Air_Quality.csv and Salary_dataset.csv datasets.
+//Uses UCLA dataset
 
 //Feel free to utilize any code/functions/logic from this file or your
 //recitation files, but perform your own analysis of the results.
@@ -15,11 +15,8 @@
 capture log close 
 log using "mylogfile.log", replace 
 
-//Set folder location - *Will have to change to your own directory*
-cd "/Users/keithwescott/Documents/01_Stats_Intensive_2024/Datasets/Course Data"
-
-//Import .csv file
-import delimited "Air_Quality.csv", clear
+//Load data from ucla.edu website
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 
 //Browse data
 br
@@ -33,63 +30,60 @@ describe
 //Summarize data set
 summarize
 
-//Analyze datavalue variable
-codebook datavalue 
+//Analyze read variable
+codebook read
 
-//Analyze name variable
-codebook name
+//Analyze prog variable
+codebook prog
 
-//Analyze geojoinid variable
-codebook geojoinid
+//Analyze id variable
+codebook id
 
-//Analyze start_date variable
-codebook start_date
+//Analyze awards variable
+codebook awards
 
-//Summarize datavalue variable
-sum datavalue
+//Summarize read variable
+sum read
 
-//Summarize datavalue variable in more detail
-sum datavalue, detail
+//Summarize read variable in more detail
+sum read, detail
 
-//Run statistical variables on data variable
-tabstat datavalue, stats(n, mean, median, min, max)
+//Run statistical variables on read variable
+tabstat read, stats(n, mean, median, min, max)
 
-//Summarize datavalue when filtered to Ozone (O3)
-sum datavalue if name == "Ozone (O3)"
+//Analyzing prog and creating string variable
+tab prog
+list prog in 1/10
+decode prog, generate(prog_str)
 
-//Summarize datavalue when filtered to Ozone (O3) and Summer 2020
-sum datavalue if name == "Ozone (O3)" & timeperiod == "Summer 2020"
+//Summarize write when filtered to vocation
+sum write if prog_str == "vocation"
+
+//Summarize write when filtered to vocation and ses
+decode ses, generate(ses_str)
+sum write if prog_str == "vocation" & ses_str == "high"
 
 //#############################################################################
 
 //Day 2
 
-//Clear all data
-clear all
-
-//Set folder location
-cd "/Users/keithwescott/Documents/01_Stats_Intensive_2024/Datasets/Course Data"
-
-//Import .csv file
-import delimited "Air_Quality.csv", clear
-
-//Histogram of all data values
-hist datavalue 
+//Histogram of read
+hist read
 
 //Browse data
 br
 
-//Histogram for Ozone (O3)
-hist datavalue if name == "Ozone (O3)"
+//Histogram for read
+hist read if prog_str == "vocation"
 
-//Histogram for Ozone (O3) with normal distribution
-hist datavalue if name == "Ozone (O3)", normal
+//Histogram for read filtered for ses
+hist read if ses_str == "high", normal
 
-//Histogram for Ozone (O3) with normal distribution and 100 bin size
-hist datavalue if name == "Ozone (O3)", bin(100) normal
+//Histogram for ses with normal distribution and 25 bin size
+hist read if ses_str == "high", bin(25) normal
 
-//Histogram for Ozone (O3) with normal distribution and freq
-hist datavalue if name == "Ozone (O3)", normal freq
+//Histogram for read with normal distribution and freq
+hist read if ses_str == "high", normal freq
 
 //Generate new columns with null values
 gen type_name=.

@@ -10,6 +10,9 @@
 //Day 1
 
 //ssc intall _______
+//ssc install logout
+//ssc install schemepack  //For better graphs
+//set scheme s1color
 
 //Log
 capture log close 
@@ -18,6 +21,7 @@ log using "mylogfile.log", replace
 //Load data from ucla.edu website
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 
+//General Stata commands for data exploration
 //Browse data
 br
 
@@ -51,6 +55,7 @@ sum read, detail
 //Run statistical variables on read variable
 tabstat read, stats(n, mean, median, min, max)
 
+//Creating variables, generating string variable, and filtering data
 //Analyzing prog and creating string variable
 tab prog
 list prog in 1/10
@@ -63,6 +68,99 @@ sum write if prog_str == "vocation"
 decode ses, generate(ses_str)
 sum write if prog_str == "vocation" & ses_str == "high"
 
+//Exploring different types of variables with graphics (slide 15)
+//Visualize nominal data
+graph bar (count), over(prog) title("Nominal: Program Type") ///
+    ytitle("Count") blabel(bar)
+
+//SES is ordinal in this dataset
+tab ses
+codebook ses
+
+//Important: We can rank but CANNOT say gaps are equal
+//Create an ordinal variables (low to very high)
+generate read_ordinal = .
+replace read_ordinal = 1 if read <= 40   //Low
+replace read_ordinal = 2 if read > 40 & read <= 50  //Medium
+replace read_ordinal = 3 if read > 50 & read <= 60  //High
+replace read_ordinal = 4 if read > 60               //Very High
+
+label define read_ord 1 "Low" 2 "Medium" 3 "High" 4 "Very High"
+label values read_ordinal read_ord
+
+//Show ordinal characteristics
+tab read_ordinal
+
+//Can use median and percentiles (appropriate for ordinal)
+sum read_ordinal, detail  //Median makes sense
+tabstat read_ordinal, stats(n mean median min max)
+//NOTE: Mean is technically inappropriate but shown for comparison
+
+//Visualize ordinal data
+graph hbar (count), over(read_ordinal) title("Ordinal: Reading Levels") ///
+    ytitle("Count")	
+
+//Interval: read scores (true interval)
+histogram read, normal title("INTERVAL: Reading Scores") ///
+    xtitle("Score (equal intervals)") frequency	
+
+//Create a Ratio variable from the dataset
+generate age_ratio = 15 + runiform()*10  //Simulated age (15-25)
+
+//Compare interval (read) vs ratio (age)
+sum read, detail
+display "READ (INTERVAL): Mean = " r(mean) ", Min = " r(min)
+
+sum age_ratio, detail
+display "AGE (RATIO): Mean = " r(mean) ", Min = " r(min)
+
+//Show the key difference: Zero is meaningful for ratio
+display "Age of 0 means no age (true zero)"
+display "Reading score of 0 means nothing (arbitrary zero)"
+
+//Show ratios work for age but not reading
+display "A 20-year-old is twice as old as a 10-year-old: 20/10 = 2 (VALID)"
+display "A 80 reading score is NOT twice as good as 40: 80/40 = 2 (INVALID)"	
+
+//Range = Maximum - Minimum (slide 46)
+sum read, detail
+
+//Calculate range manually
+display "Range for Reading = " r(max) - r(min)
+display "Min = " r(min) ", Max = " r(max)
+
+//Range for all test scores 
+foreach var in read write math science {
+    quietly: sum `var', detail
+    display "`var' Range = " r(max) - r(min) 
+    display "  (Min = " r(min) ", Max = " r(max) ")"
+}
+
+//IQR for all test scores (slide 47)
+foreach var in read write math science {
+    quietly: sum `var', detail
+    display "`var' IQR = " r(p75) - r(p25) 
+    display "  (Q1 = " r(p25) ", Q3 = " r(p75) ")"
+}
+
+//Standard deviation (slide 52)
+foreach var in read write math science {
+    quietly: sum `var'
+    display "`var' SD = " r(sd) 
+}
+
+//Coefficient of variation (slide 55)
+foreach var in read write math science {
+    quietly: sum `var'
+    local cv = (r(sd)/r(mean))*100
+    display "`var': CV = " round(`cv', .1) "%"
+}
+
+//Boxplot for all subjects
+graph box read write math science, ///
+    title("Dispersion Across Subjects") ///
+    ytitle("Test Scores") ///
+    note("Box = IQR, Line = Median, Whiskers = Range")
 //#############################################################################
 
 //Day 2

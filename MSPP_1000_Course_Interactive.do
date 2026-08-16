@@ -559,62 +559,109 @@ display "Percentage: " r(sum)/25 * 100 "%"
 
 //Show the intervals
 list in 1/25
+
+close log
 //#############################################################################
 
 //Day 4
 
-//Clear all data
 clear all
+set more off
+capture log close
 
-//Set folder location
-cd "/Users/keithwescott/Documents/01_Stats_Intensive_2024/Datasets/Course Data"
+log using "MSPP_Day4.log", replace text
 
-//Import .csv file
-import delimited "Salary_dataset.csv", clear
+//=====================================================
+//Z-Scores and Hypothesis Testing (slide 25)
+//Load the dataset
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+decode ses, generate(ses_str)
 
-//Browse data
-br
+display "Is the mean reading score different from 50?"
+//We assume our data is a SAMPLE from a larger population
 
-//Summarize data set
-summarize
+//Population parameters from our dataset
+sum read
+local pop_mean = r(mean)
+local pop_sd = r(sd)
+local n = r(N)
 
-//histogram of salary
-hist salary
+//Display population variables
+display "Population mean (μ) = " r(mean)
+display "Population SD (σ) = " r(sd)
+display "Sample size (n) = " r(N)
+display ""
 
-//ttest of salary
-ttest salary == 80000
+//Test if mean = 50
+local hypothesized = 50
+local z = (`pop_mean' - `hypothesized') / (`pop_sd'/sqrt(`n'))
 
-//Count data values
-count
+//A local macro is a temporary storage container for text or numbers that you can use throughout your code. 
 
-//Describe data set
-describe
+//Set up hypothesis
+display "H₀: μ = " `hypothesized'
+display "Hₐ: μ ≠ " `hypothesized' " (two-tailed)"
+display ""
 
-//-----------------------------------------------------------------------------
+//Calculate z-score
+display "z = (" `pop_mean' " - " `hypothesized' ")/(" `pop_sd' "/√" `n' ") = " `z'
 
-//Clear all data
-clear all
+//Critical value for α = 0.05 (two-tailed)
+local crit = invnormal(0.975)
+display "Critical value (α=0.05) = ±" `crit'
 
-//Set folder location
-cd "/Users/keithwescott/Documents/01_Stats_Intensive_2024/Datasets/Course Data"
+display ""
+if abs(`z') > `crit' {
+    display "|z| = " abs(`z') " > " `crit' ", REJECT H₀"
+    display "The mean reading score IS significantly different from " `hypothesized'
+}
+else {
+    display "|z| = " abs(`z') " < " `crit' ", FAIL TO REJECT H₀"
+    display "The mean reading score is NOT significantly different from " `hypothesized'
+}
 
-//Import .csv file
-import delimited "Air_Quality.csv", clear
+//If / else function. Determining which line to run based on set conditions
 
-//Browse data
-br
+//Calculate p-value
+local p = 2 * (1 - normal(abs(`z')))
+display ""
+display "--- P-VALUE ---"
+display "p = " `p'
+if `p' < 0.05 {
+    display "p = " `p' " < 0.05, REJECT H₀"
+}
+else {
+    display "p = " `p' " > 0.05, FAIL TO REJECT H₀"
+}
 
-//histogram
-hist datavalue
+//===========================================================
+//T-test (slide 33)
+//Again we assume our data is a SAMPLE from a larger population
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 
-//ttest
-ttest datavalue = 30
+display "Testing if mean math score equals 50"
 
-//Run 'Normal histogram'
-hist datavalue if name == "Ozone (O3)", normal
+//One-sample t-test
+display "--- T-TEST OUTPUT ---"
+ttest math == 50
 
-//ttest
-ttest datavalue = 30 if name == "Ozone (O3)"
+if r(p) < 0.05 {
+    display "p < 0.05, REJECT H₀"
+    display "Math scores ARE significantly different from 50"
+}
+else {
+    display "p > 0.05, FAIL TO REJECT H₀"
+    display "Math scores are NOT significantly different from 50"
+}
+
+//Visualize
+hist math, normal title("Math Score Distribution") ///
+    xtitle("Math Score") ///
+    xline(50, lcolor(red) lpattern(dash))
+
+//==============================================
+
 
 //#############################################################################
 

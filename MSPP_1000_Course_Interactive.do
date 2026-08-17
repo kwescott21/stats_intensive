@@ -94,7 +94,6 @@ tab read_ordinal
 //Can use median and percentiles (appropriate for ordinal)
 sum read_ordinal, detail  //Median makes sense
 tabstat read_ordinal, stats(n mean median min max)
-//NOTE: Mean is technically inappropriate but shown for comparison
 
 //Visualize ordinal data
 graph hbar (count), over(read_ordinal) title("Ordinal: Reading Levels") ///

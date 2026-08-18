@@ -9,7 +9,7 @@
 
 //Day 1
 
-//ssc intall _______
+//ssc install _______
 //ssc install logout
 //ssc install schemepack  //For better graphs
 //set scheme s1color
@@ -189,7 +189,6 @@ display "Total observations: " r(N)
 list id female ses prog read write math science in 1/10
 
 //Law of Large Numbers Demonstration (slide 5)
-display "--- LAW OF LARGE NUMBERS DEMONSTRATION ---"
 display "As more observations are collected, proportion converges to true probability"
 
 clear
@@ -217,9 +216,15 @@ twoway (line cum_prob trial), ///
     note("Converges to 0.5 as sample size increases")
 
 //Probability Basics (slide 6)
-display ""
-display "--- PROBABILITY BASICS ---"
 display "Probability always between 0 and 1 (0% to 100%)"
+
+//Load main dataset
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+
+//Create string variables for labels
+decode prog, generate(prog_str)
+decode ses, generate(ses_str)
+decode schtyp, generate(schtyp_str)
 
 tab prog
 display "P(General) = " 45/200
@@ -232,7 +237,7 @@ display "P(General OR Academic) = P(General) + P(Academic) = " ///slide 10
 
 //Addition Rule
 display ""
-display "--- ADDITION RULE ---"
+display "Addition Rule"
 display "P(A OR B) = P(A) + P(B) - P(A AND B)"
 
 //Create contingency table for demonstration
@@ -625,7 +630,7 @@ else {
 //Calculate p-value
 local p = 2 * (1 - normal(abs(`z')))
 display ""
-display "--- P-VALUE ---"
+display "p-value"
 display "p = " `p'
 if `p' < 0.05 {
     display "p = " `p' " < 0.05, REJECT H₀"
@@ -642,7 +647,7 @@ use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 display "Testing if mean math score equals 50"
 
 //One-sample t-test
-display "--- T-TEST OUTPUT ---"
+display "t-test output"
 ttest math == 50
 
 if r(p) < 0.05 {
@@ -660,56 +665,192 @@ hist math, normal title("Math Score Distribution") ///
     xline(50, lcolor(red) lpattern(dash))
 
 //==============================================
+//t-test 2 sample (slide 34)
+
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+
+display "Writing scores by program type"
+display "Testing if General vs Academic programs have different mean writing scores"
+
+//Two-sample t-test (only General vs Academic)
+ttest write if prog_str == "general" | prog_str == "academic", by(prog_str)
+
+//Interpretation
+display ""
+display "--- INTERPRETATION ---"
+display "t = " r(t)
+display "df = " r(df_t)
+display "p = " r(p)
+display ""
+
+if r(p) < 0.05 {
+    display "p < 0.05, REJECT H₀"
+    display "General and Academic programs have SIGNIFICANTLY different writing scores"
+}
+else {
+    display "p > 0.05, FAIL TO REJECT H₀"
+    display "General and Academic programs do NOT have significantly different writing scores"
+}
+
+//Visualize
+graph box write if prog_str == "general" | prog_str == "academic", ///
+    over(prog_str) title("Writing Scores by Program") ///
+    ytitle("Writing Score")
+
+//==============================================
+//anova, f-test (slide 38)
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+
+display "Reading scores by program type"
+display "Testing if reading scores differ across General, Academic, and Vocation programs"
+
+//ANOVA
+display ""
+display "anova output"
+oneway read prog, tabulate
+
+//Interpretation
+display ""
+display "interpretation"
+display "F = " r(F)
+display "df = " r(df) ", " r(df_r)
+display "p = " r(p)
+display ""
+
+if r(p) < 0.05 {
+    display "p < 0.05, REJECT H₀"
+    display "Not all programs have the same mean reading score"
+}
+else {
+    display "p > 0.05, FAIL TO REJECT H₀"
+    display "All programs have the same mean reading score"
+}
+
+//Visualize
+graph box read, over(prog_str) title("Reading Scores by Program Type") ///
+    ytitle("Reading Score")
+
+//==============================================
+//chi-squared (slide 46)
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+
+display "program type distribution"
+display "Testing if students are equally distributed across programs"
+
+//Counts by program
+tab prog
+
+//Expected counts (equal distribution)
+display ""
+display "Expected: 200/3 = 66.67 students per program"
+
+//Calculate chi-square manually
+tab prog, matcell(observed)
+local total = `r(N)'
+local expected = `total'/3
+
+//Calculate chi-square
+local chi_sq = 0
+forvalues i = 1/3 {
+    local obs = observed[`i',1]
+    local chi_sq = `chi_sq' + (`obs' - `expected')^2 / `expected'
+}
+
+display ""
+display "--- CHI-SQUARE CALCULATION ---"
+display "χ² = " `chi_sq'
+
+//Critical value (df=2, α=0.05)
+local crit = invchi2(2, 0.95)
+display "Critical value (df=2, α=0.05) = " `crit'
+
+if `chi_sq' > `crit' {
+    display "χ² = " `chi_sq' " > " `crit' ", REJECT H₀"
+    display "Students are NOT equally distributed across programs"
+}
+else {
+    display "χ² = " `chi_sq' " < " `crit' ", FAIL TO REJECT H₀"
+    display "Students ARE equally distributed across programs"
+}
+
+//==============================================
+//chi-squared (slide 51)
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+decode ses, generate(ses_str)
+
+display "Program type and SES"
+display "Testing if program type and SES are independent"
+
+//Chi-square test
+display ""
+display "chi-squared output"
+tab prog ses, chi2 row col expected
+
+//Interpretation
+display ""
+display "interpretation"
+display "χ² = " r(chi2)
+display "df = " r(df)
+display "p = " r(p)
+display ""
+
+if r(p) < 0.05 {
+    display "p < 0.05, REJECT H₀"
+    display "Program type and SES are NOT independent"
+    display "There IS a relationship between program and SES"
+}
+else {
+    display "p > 0.05, FAIL TO REJECT H₀"
+    display "Program type and SES ARE independent"
+    display "There is NO relationship between program and SES"
+}
+
+//Visualize
+graph hbar (count), over(prog_str) over(ses_str) ///
+    title("Program Type by SES") ///
+    ytitle("Count") blabel(bar)
+
+//#############################################################################
+//Day 5
+
+clear all
+set more off
+capture log close
+
+log using "MSPP_Day5.log", replace text
+
+//Load the dataset
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+decode ses, generate(ses_str)
+
+//Basic scatterplot
+twoway scatter read write, ///
+    title("Reading vs Writing Scores") ///
+    xtitle("Writing Score") ///
+    ytitle("Reading Score") ///
+    mcolor(blue) msymbol(circle)
+
+//Scatterplot with regression line
+twoway (scatter read write) (lfit read write), ///
+    title("Reading vs Writing Scores with Regression Line") ///
+    xtitle("Writing Score") ///
+    ytitle("Reading Score") ///
+    legend(label(1 "Data Points") label(2 "Regression Line"))
+
+//Multiple scatterplots in one
+graph twoway (scatter read write) (lfit read write), ///
+    by(prog_str, title("Reading vs Writing by Program Type")) ///
+    xtitle("Writing Score") ///
+    ytitle("Reading Score")
 
 
 //#############################################################################
-
-//Day 5
-
-//Clear all data
-clear all
-
-//Set folder location
-cd "/Users/keithwescott/Documents/01_Stats_Intensive_2024/Datasets/Course Data"
-
-//Import .csv file
-import delimited "Salary_dataset.csv", clear
-
-//Browse data
-br
-
-//Count data values
-count
-
-//Describe data set
-describe
-
-//Summarize data set
-summarize
-
-//Scatter plots years experience & salary
-scatter yearsexperience salary 
-scatter yearsexperience salary, title("Years Exp. & Salary")
-
-scatter yearsexperience salary, title("Years Exp. & Salary") ///
-subtitle("Sample of 30 workers", size(small)) ///
-ytitle("Years Exp.") xtitle("Salary") ///
-msymbol(diamond) msize(vsmall) scheme(economist)
-
-//Linear regression
-twoway (scatter yearsexperience salary) (lfit yearsexperience salary)
-
-twoway  (scatter yearsexperience salary, mcolor(black) msymbol(circle)) ///
-		(lfit yearsexperience salary, lcolor(black) lpattern(solid)) ///
-		(qfit yearsexperience salary, lcolor(black) lpattern(dash)), ///
-		ytitle(Years of Exp.) ///
-		xtitle(Salary) ///
-		legend(off) scheme(burd)
-		
-reg yearsexperience salary		
-
-
-
+//Extra information, data engineering / cleaning
 
 
 

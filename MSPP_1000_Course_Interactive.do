@@ -726,7 +726,7 @@ tabstat read, by(prog_str) statistics(n mean sd) format(%9.2f)
 
 //Run the anova test
 anova read prog
-margins prog
+margins prog, pwcompare(effects)
 
 //Store results
 local f   = e(F)
@@ -842,6 +842,7 @@ graph hbar (count), over(prog_str) over(ses_str) ///
     title("Program Type by SES") ///
     ytitle("Count") blabel(bar)
 
+capture log close
 //#############################################################################
 //Day 5
 
@@ -926,7 +927,7 @@ display ""
 display "R-squared = " round(e(r2), 0.001) " (" round(e(r2)*100, 0.001) "%)"
 display ""
 
-
+capture log close
 //#############################################################################
 //Extra information, data engineering / cleaning
 //Not part of main course
@@ -964,29 +965,28 @@ drop _merge
 list id prog prog_full funding_source
 
 //Union / Append
+//Same story as the merge example above: split hsbdemo into its 3 program tracks,
+//then stack them back together. Same columns throughout -- only the row count changes.
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 
 preserve
 keep if prog_str == "general"
-generate source_table = "general_only.dta"
 display "General track rows: " _N
 save general_only.dta, replace
 restore
 
 preserve
 keep if prog_str == "academic"
-generate source_table = "academic_only.dta"
 display "Academic track rows: " _N
 save academic_only.dta, replace
 restore
 
 keep if prog_str == "vocation"
-generate source_table = "vocation_only.dta"
 display "Vocation track rows: " _N
 save vocation_only.dta, replace
 
-//Union them back together
+//Union them back together -- append stacks rows; the columns never change
 use general_only.dta, clear
 display "After loading general_only.dta: " _N " rows"
 
@@ -996,9 +996,40 @@ display "After appending academic_only.dta: " _N " rows"
 append using vocation_only.dta
 display "After appending vocation_only.dta: " _N " rows"
 
-//See the union happen - sort by source so the "seams" are visible
-sort source_table id
-browse id prog_str source_table
+sort prog_str id
+browse
 
-count            //should equal 200, the original total
+count            //should equal 200, same total we started with
+
+//Group by
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+collapse (mean) read write math, by(prog_str)
+
+//Reshape
+//Reshape -- wide vs. long
+//hsbdemo starts "wide": one row per student, one column per subject test score.
+//Reshape "long" stacks those 5 subject columns into 2: a subject label and a score.
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+
+display "WIDE format: " _N " rows, one row per student"
+list id read write math science socst in 1/5
+
+//reshape needs a common stub name across the columns being stacked,
+//so rename the 5 subject scores to score_<subject>
+rename read     score_read
+rename write    score_write
+rename math     score_math
+rename science  score_science
+rename socst    score_socst
+
+//Reshape long -- stack the 5 score_ columns into rows
+reshape long score_, i(id) j(subject) string
+
+display ""
+display "LONG format: " _N " rows -- 200 students x 5 subjects = 1000 rows"
+sort id subject
+browse
+
+
 

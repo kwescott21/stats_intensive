@@ -53,7 +53,7 @@ sum read
 sum read, detail
 
 //Run statistical variables on read variable
-tabstat read, stats(n, mean, median, min, max)
+tabstat read, stats(n mean median min max)
 
 //Creating variables, generating string variable, and filtering data
 //Analyzing prog and creating string variable
@@ -564,7 +564,7 @@ display "Percentage: " r(sum)/25 * 100 "%"
 //Show the intervals
 list in 1/25
 
-close log
+log close 
 //#############################################################################
 
 //Day 4
@@ -582,56 +582,74 @@ use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 decode ses, generate(ses_str)
 
-display "Is the mean reading score different from 50?"
-//We assume our data is a SAMPLE from a larger population
+display "Is the mean reading score different from the population mean?"
+//We treat the full dataset as our POPULATION,
+//then draw a SAMPLE from it to test against that population mean
 
-//Population parameters from our dataset
+//======================================================
+//Step 1: Population parameters (from the full dataset)
 sum read
 local pop_mean = r(mean)
 local pop_sd = r(sd)
+local pop_n = r(N)
+
+display "Population mean (μ) = " `pop_mean'
+display "Population SD (σ) = " `pop_sd'
+display "Population size (N) = " `pop_n'
+display ""
+
+//======================================================
+//Step 2: Draw a sample from the population
+set seed 12345
+sample 50, count
+
+sum read
+local samp_mean = r(mean)
 local n = r(N)
 
-//Display population variables
-display "Population mean (μ) = " r(mean)
-display "Population SD (σ) = " r(sd)
-display "Sample size (n) = " r(N)
+display "Sample mean = " `samp_mean'
+display "Sample size (n) = " `n'
 display ""
 
-//Test if mean = 50
-local hypothesized = 50
-local z = (`pop_mean' - `hypothesized') / (`pop_sd'/sqrt(`n'))
+//A local macro is a temporary storage container for text or numbers that you can use throughout your code.
 
-//A local macro is a temporary storage container for text or numbers that you can use throughout your code. 
-
-//Set up hypothesis
-display "H₀: μ = " `hypothesized'
-display "Hₐ: μ ≠ " `hypothesized' " (two-tailed)"
+//======================================================
+//Step 3: Set up hypotheses
+display "H₀: sample mean = population mean (" `pop_mean' ")"
+display "Hₐ: sample mean ≠ population mean (two-tailed)"
 display ""
 
-//Calculate z-score
-display "z = (" `pop_mean' " - " `hypothesized' ")/(" `pop_sd' "/√" `n' ") = " `z'
+//======================================================
+//Step 4: Calculate z-score
+local z = (`samp_mean' - `pop_mean') / (`pop_sd'/sqrt(`n'))
+
+display "z = (" round(`samp_mean', 0.01) " - " round(`pop_mean', 0.01) ") / (" round(`pop_sd', 0.01) " / sqrt(" `n' ")) = " round(`z', 0.001)
 
 //Critical value for α = 0.05 (two-tailed)
 local crit = invnormal(0.975)
 display "Critical value (α=0.05) = ±" `crit'
-
 display ""
+
+//======================================================
+//Step 5: Decision using critical value
 if abs(`z') > `crit' {
     display "|z| = " abs(`z') " > " `crit' ", REJECT H₀"
-    display "The mean reading score IS significantly different from " `hypothesized'
+    display "The sample mean IS significantly different from the population mean"
 }
 else {
     display "|z| = " abs(`z') " < " `crit' ", FAIL TO REJECT H₀"
-    display "The mean reading score is NOT significantly different from " `hypothesized'
+    display "The sample mean is NOT significantly different from the population mean"
 }
 
 //If / else function. Determining which line to run based on set conditions
 
-//Calculate p-value
+//======================================================
+//Step 6: Calculate p-value
 local p = 2 * (1 - normal(abs(`z')))
 display ""
 display "p-value"
 display "p = " `p'
+
 if `p' < 0.05 {
     display "p = " `p' " < 0.05, REJECT H₀"
 }
@@ -641,7 +659,7 @@ else {
 
 //===========================================================
 //T-test (slide 33)
-//Again we assume our data is a SAMPLE from a larger population
+//We assume our data is a SAMPLE from a larger population
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 
 display "Testing if mean math score equals 50"
@@ -651,11 +669,11 @@ display "t-test output"
 ttest math == 50
 
 if r(p) < 0.05 {
-    display "p < 0.05, REJECT H₀"
+    display "p = " round(r(p), 0.0001) " < 0.05, REJECT H0"
     display "Math scores ARE significantly different from 50"
 }
 else {
-    display "p > 0.05, FAIL TO REJECT H₀"
+    display "p = " round(r(p), 0.0001) " > 0.05, FAIL TO REJECT H0"
     display "Math scores are NOT significantly different from 50"
 }
 
@@ -678,18 +696,18 @@ ttest write if prog_str == "general" | prog_str == "academic", by(prog_str)
 
 //Interpretation
 display ""
-display "--- INTERPRETATION ---"
-display "t = " r(t)
+display "Interpretation"
+display "t = " round(r(t), 0.001)
 display "df = " r(df_t)
-display "p = " r(p)
+display "p = " round(r(p), 0.0001)
 display ""
 
 if r(p) < 0.05 {
-    display "p < 0.05, REJECT H₀"
+    display "p = " round(r(p), 0.0001) " < 0.05, REJECT H0"
     display "General and Academic programs have SIGNIFICANTLY different writing scores"
 }
 else {
-    display "p > 0.05, FAIL TO REJECT H₀"
+    display "p = " round(r(p), 0.0001) " > 0.05, FAIL TO REJECT H0"
     display "General and Academic programs do NOT have significantly different writing scores"
 }
 
@@ -703,7 +721,7 @@ graph box write if prog_str == "general" | prog_str == "academic", ///
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 
-//Do an inital tabstat to see the means and SDs
+//Do an initial tabstat to see the means and SDs
 tabstat read, by(prog_str) statistics(n mean sd) format(%9.2f)
 
 //Run the anova test
@@ -719,18 +737,19 @@ local p   = Ftail(`df1', `df2', `f')
 //Display
 display ""
 display "results"
-display "F = " `f'
+display "F = " round(`f', 0.001)
 display "df = " `df1' ", " `df2'
-display "p = " `p'
+display "p = " round(`p', 0.0000001)
+display "p (unrounded) = " `p'
 display ""
 
 //Hypothesis test
 if `p' < 0.05 {
-    display "p < 0.05, REJECT H₀"
+    display "p = " round(`p', 0.0001) " < 0.05, REJECT H0"
     display "Not all programs have the same mean reading score"
 }
 else {
-    display "p > 0.05, FAIL TO REJECT H₀"
+    display "p = " round(`p', 0.0001) " > 0.05, FAIL TO REJECT H0"
     display "All programs have the same mean reading score"
 }
 
@@ -739,55 +758,53 @@ graph box read, over(prog_str) title("Reading Scores by Program Type") ///
     ytitle("Reading Score")
 
 //==============================================
-//chi-squared (slide 46)
+//chi-squared, goodness of fit (slide 46)
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 
 display "program type distribution"
 display "Testing if students are equally distributed across programs"
 
-//Counts by program
-tab prog
-
-//Expected counts (equal distribution)
-display ""
-display "Expected: 200/3 = 66.67 students per program"
-
-//Calculate chi-square manually
-tab prog, matcell(observed)
-local total = `r(N)'
+count
+local total = r(N)
 local expected = `total'/3
 
-//Calculate chi-square
-local chi_sq = 0
-forvalues i = 1/3 {
-    local obs = observed[`i',1]
-    local chi_sq = `chi_sq' + (`obs' - `expected')^2 / `expected'
-}
+count if prog_str == "general"
+local obs_general = r(N)
+
+count if prog_str == "academic"
+local obs_academic = r(N)
+
+count if prog_str == "vocation"
+local obs_vocational = r(N)
+
+local chi_sq = (`obs_general' - `expected')^2/`expected' ///
+             + (`obs_academic' - `expected')^2/`expected' ///
+             + (`obs_vocation' - `expected')^2/`expected'
 
 display ""
-display "Chi-Square test statistic"
-display "χ² = " `chi_sq'
+display "chi2 = " round(`chi_sq', 0.001)
 
-//P-value
 local p = chi2tail(2, `chi_sq')
 display "p = " `p'
 
-//Critical value (df=2, α=0.05)
 local crit = invchi2(2, 0.95)
-display "Critical value (df=2, α=0.05) = " `crit'
+display "Critical value (df=2, alpha=0.05) = " round(`crit', 0.001)
 
 if `chi_sq' > `crit' {
-    display "χ² = " `chi_sq' " > " `crit' ", REJECT H₀"
-    display "Students are NOT equally distributed across programs"
+    display "chi2 = " round(`chi_sq', 0.001) " > " round(`crit', 0.001) ", REJECT H0"
 }
 else {
-    display "χ² = " `chi_sq' " < " `crit' ", FAIL TO REJECT H₀"
-    display "Students ARE equally distributed across programs"
+    display "chi2 = " round(`chi_sq', 0.001) " < " round(`crit', 0.001) ", FAIL TO REJECT H0"
 }
 
+//  chi_sq      - the chi-square test statistic itself; built up by summing
+//                (observed - expected)^2 / expected across all 3 categories
+//  p           - the p-value for chi_sq, calculated using chi2tail() with 2
+//                degrees of freedom (df = number of categories - 1 = 3 - 1 = 2)
+
 //==============================================
-//chi-squared (slide 51)
+//chi-squared, independence (slide 51)
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 decode ses, generate(ses_str)
@@ -803,18 +820,19 @@ tab prog ses, chi2 row col expected
 //Interpretation
 display ""
 display "interpretation"
-display "χ² = " r(chi2)
-display "df = " r(df)
-display "p = " r(p)
+local df = (r(r) - 1) * (r(c) - 1)
+display "chi2 = " round(r(chi2), 0.001)
+display "df = " `df'
+display "p = " round(r(p), 0.0001)
 display ""
 
 if r(p) < 0.05 {
-    display "p < 0.05, REJECT H₀"
+    display "p = " round(r(p), 0.0001) " < 0.05, REJECT H0"
     display "Program type and SES are NOT independent"
     display "There IS a relationship between program and SES"
 }
 else {
-    display "p > 0.05, FAIL TO REJECT H₀"
+    display "p = " round(r(p), 0.0001) " > 0.05, FAIL TO REJECT H0"
     display "Program type and SES ARE independent"
     display "There is NO relationship between program and SES"
 }
@@ -911,10 +929,76 @@ display ""
 
 //#############################################################################
 //Extra information, data engineering / cleaning
-//brew install libiodbc
+//Not part of main course
 
+//Connecting to a database (future developemnt)
 odbc list
 
 odbc load, dsn("NeonDB") exec("SELECT * FROM rawdata.pokemon") clear
 
 br
+
+//Joins / merges
+//Build a lookup/dimension table for program type
+clear
+input prog str20 prog_full str30 funding_source
+1 "General Track" "State Education Fund"
+2 "Academic Track" "State Education Fund"
+3 "Vocational Track" "Federal Workforce Grant"
+end
+
+//Show the table you just built
+list
+
+save prog_lookup.dta, replace
+
+///
+
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+merge m:1 prog using prog_lookup.dta
+
+tab _merge
+drop _merge
+
+//Show ALL 200 rows with the new columns
+list id prog prog_full funding_source
+
+//Union / Append
+use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
+decode prog, generate(prog_str)
+
+preserve
+keep if prog_str == "general"
+generate source_table = "general_only.dta"
+display "General track rows: " _N
+save general_only.dta, replace
+restore
+
+preserve
+keep if prog_str == "academic"
+generate source_table = "academic_only.dta"
+display "Academic track rows: " _N
+save academic_only.dta, replace
+restore
+
+keep if prog_str == "vocation"
+generate source_table = "vocation_only.dta"
+display "Vocation track rows: " _N
+save vocation_only.dta, replace
+
+//Union them back together
+use general_only.dta, clear
+display "After loading general_only.dta: " _N " rows"
+
+append using academic_only.dta
+display "After appending academic_only.dta: " _N " rows"
+
+append using vocation_only.dta
+display "After appending vocation_only.dta: " _N " rows"
+
+//See the union happen - sort by source so the "seams" are visible
+sort source_table id
+browse id prog_str source_table
+
+count            //should equal 200, the original total
+

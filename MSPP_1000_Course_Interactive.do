@@ -703,23 +703,29 @@ graph box write if prog_str == "general" | prog_str == "academic", ///
 use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 
-display "Reading scores by program type"
-display "Testing if reading scores differ across General, Academic, and Vocation programs"
+//Do an inital tabstat to see the means and SDs
+tabstat read, by(prog_str) statistics(n mean sd) format(%9.2f)
 
-//ANOVA
-display ""
-display "anova output"
-oneway read prog, tabulate
+//Run the anova test
+anova read prog
+margins prog
 
-//Interpretation
+//Store results
+local f   = e(F)
+local df1 = e(df_m)
+local df2 = e(df_r)
+local p   = Ftail(`df1', `df2', `f')
+
+//Display
 display ""
-display "interpretation"
-display "F = " r(F)
-display "df = " r(df) ", " r(df_r)
-display "p = " r(p)
+display "results"
+display "F = " `f'
+display "df = " `df1' ", " `df2'
+display "p = " `p'
 display ""
 
-if r(p) < 0.05 {
+//Hypothesis test
+if `p' < 0.05 {
     display "p < 0.05, REJECT H₀"
     display "Not all programs have the same mean reading score"
 }
@@ -760,8 +766,12 @@ forvalues i = 1/3 {
 }
 
 display ""
-display "--- CHI-SQUARE CALCULATION ---"
+display "Chi-Square test statistic"
 display "χ² = " `chi_sq'
+
+//P-value
+local p = chi2tail(2, `chi_sq')
+display "p = " `p'
 
 //Critical value (df=2, α=0.05)
 local crit = invchi2(2, 0.95)
@@ -828,31 +838,83 @@ use https://stats.idre.ucla.edu/stat/data/hsbdemo, clear
 decode prog, generate(prog_str)
 decode ses, generate(ses_str)
 
-//Basic scatterplot
+//Simple linear regression
+regress read write
+
+local a = _b[_cons]      // Y-intercept
+local b = _b[write]      // Slope
+local r2 = e(r2)         // R-squared
+
+//Detailed expalination of regression results
+display ""
+display "Regression equation:"
+display "Reading = " round(`a', 0.0001) " + " round(`b', 0.0001) " * Writing"
+display ""
+display "Interpretation:"
+display "  - If Writing = 0, predicted Reading = " round(`a', 0.0001)
+display "  - For each 1-point increase in Writing, Reading increases by " round(`b', 0.0001)
+display "  - R-squared = " round(`r2', 0.001) " (" round(`r2'*100, 0.1) "% of variance explained)"
+display ""
+
+//Predicting Reading score for a Writing score of 50
+display "If a student has a Writing score of 50, what is their predicted Reading score?"
+local predicted = `a' + `b' * 50
+display "Reading = " round(`a', 0.0001) " + " round(`b', 0.0001) " * 50 = " round(`predicted', 0.0001)
+
+//Basic scatterplot (slide 8)
 twoway scatter read write, ///
     title("Reading vs Writing Scores") ///
     xtitle("Writing Score") ///
     ytitle("Reading Score") ///
     mcolor(blue) msymbol(circle)
 
-//Scatterplot with regression line
+//Scatterplot with regression line (slide 9)
 twoway (scatter read write) (lfit read write), ///
     title("Reading vs Writing Scores with Regression Line") ///
     xtitle("Writing Score") ///
     ytitle("Reading Score") ///
     legend(label(1 "Data Points") label(2 "Regression Line"))
 
-//Multiple scatterplots in one
+//Multiple scatterplots in one (slide 9)
 graph twoway (scatter read write) (lfit read write), ///
     by(prog_str, title("Reading vs Writing by Program Type")) ///
     xtitle("Writing Score") ///
     ytitle("Reading Score")
 
+//Correlation matrix (slide 21/27)
+correlate read write math science
+
+//Predict using different variables (slide 28)
+foreach var in write math science {
+    quietly: regress read `var'
+    display "R-squared using `var' = " round(e(r2), 0.001) " (" round(e(r2)*100, 0.001) "%)"
+}
+
+//Creating predicted values and difference
+regress read write
+predict predicted_read
+generate diff_read_read = read - predicted_read
+
+//Quick regression with multiple predictors
+regress read write math science
+
+display ""
+display "Interpretation of coefficients:"
+display "Reading = " round(_b[_cons], 0.0001) 
+display "  + " round(_b[write], 0.0001) "*Writing"
+display "  + " round(_b[math], 0.0001) "*Math"
+display "  + " round(_b[science], 0.0001) "*Science"
+display ""
+display "R-squared = " round(e(r2), 0.001) " (" round(e(r2)*100, 0.001) "%)"
+display ""
+
 
 //#############################################################################
 //Extra information, data engineering / cleaning
+//brew install libiodbc
 
+odbc list
 
+odbc load, dsn("NeonDB") exec("SELECT * FROM rawdata.pokemon") clear
 
-
-
+br
